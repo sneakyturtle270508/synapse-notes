@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <div id="logo">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="11" r="3" fill="#7c6af7"/>
+          <circle cx="3.5" cy="5" r="2" fill="#4ecdc4"/>
+          <circle cx="18.5" cy="5" r="2" fill="#e05c5c"/>
+          <circle cx="3.5" cy="17" r="2" fill="#d4a017"/>
+          <circle cx="18.5" cy="17" r="2" fill="#a8c44e"/>
+          <line x1="11" y1="11" x2="3.5" y2="5" stroke="#7c6af7" stroke-width="0.8" opacity="0.5"/>
+          <line x1="11" y1="11" x2="18.5" y2="5" stroke="#7c6af7" stroke-width="0.8" opacity="0.5"/>
+          <line x1="11" y1="11" x2="3.5" y2="17" stroke="#7c6af7" stroke-width="0.8" opacity="0.5"/>
+          <line x1="11" y1="11" x2="18.5" y2="17" stroke="#7c6af7" stroke-width="0.8" opacity="0.5"/>
+        </svg>
+        <span>Synapse</span>
+      </div>
+      <button id="new-note-btn" title="New note">+</button>
+    </div>
+
+    <div id="view-tabs">
+      <button class="tab active" data-view="notes">Notes</button>
+      <button class="tab" data-view="graph">Graph</button>
+    </div>
+
+    <div id="note-list-wrap">
+      <div id="note-list"></div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="editor-view">
+      <div id="empty-state">
+        <div id="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="6" fill="#7c6af7" opacity="0.3"/>
+            <circle cx="8" cy="12" r="4" fill="#4ecdc4" opacity="0.3"/>
+            <circle cx="40" cy="12" r="4" fill="#e05c5c" opacity="0.3"/>
+            <circle cx="8" cy="36" r="4" fill="#d4a017" opacity="0.3"/>
+            <circle cx="40" cy="36" r="4" fill="#a8c44e" opacity="0.3"/>
+            <line x1="24" y1="24" x2="8" y2="12" stroke="#7c6af7" stroke-width="1" opacity="0.2"/>
+            <line x1="24" y1="24" x2="40" y2="12" stroke="#7c6af7" stroke-width="1" opacity="0.2"/>
+            <line x1="24" y1="24" x2="8" y2="36" stroke="#7c6af7" stroke-width="1" opacity="0.2"/>
+            <line x1="24" y1="24" x2="40" y2="36" stroke="#7c6af7" stroke-width="1" opacity="0.2"/>
+          </svg>
+        </div>
+        <p class="empty-title">Select a note or create one</p>
+        <p class="empty-sub">Synapse will connect them automatically</p>
+      </div>
+
+      <div id="editor-panel" class="hidden">
+        <div id="editor-top">
+          <input id="note-title" type="text" placeholder="Note title..." spellcheck="false">
+          <button id="delete-note-btn" title="Delete note">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M3 3l9 9M12 3l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <textarea id="note-content" placeholder="Start writing..." spellcheck="false"></textarea>
+        <div id="connections-panel">
+          <div id="connections-label">
+            <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="#7c6af7"/><line x1="6" y1="6" x2="1" y2="2" stroke="#7c6af7" stroke-width="0.8"/><line x1="6" y1="6" x2="11" y2="2" stroke="#7c6af7" stroke-width="0.8"/><line x1="6" y1="6" x2="6" y2="11" stroke="#7c6af7" stroke-width="0.8"/></svg>
+            Connected notes
+          </div>
+          <div id="category-tag-wrap" style="margin-bottom:10px;"></div>
+          <div id="connections-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="graph-view" class="hidden">
+      <canvas id="graph-canvas"></canvas>
+      <div id="graph-tooltip"></div>
+      <div id="graph-hint">drag nodes · hover to inspect</div>
+    </div>
+  </main>
+</div>
+
+<div id="saving-indicator">saving...</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

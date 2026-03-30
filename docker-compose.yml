@@ -1,0 +1,15 @@
+services:
+  synapse:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - synapse_data:/app/backend/synapse.db
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - LINK_THRESHOLD=${LINK_THRESHOLD:-0.78}
+    restart: unless-stopped
+
+volumes:
+  synapse_data:
