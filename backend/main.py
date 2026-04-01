@@ -528,38 +528,16 @@ def get_connections(note_id: int):
         ORDER BY l.score DESC
     """, (note_id, note_id, note_id)).fetchall()
 
-    note_row = conn.execute("SELECT category, labels FROM notes WHERE id=?", (note_id,)).fetchone()
-    note_labels = set()
-    if note_row and note_row["labels"]:
-        try:
-            note_labels = {stem_word(x) for x in json.loads(note_row["labels"]) if isinstance(x, str)}
-        except Exception:
-            note_labels = set()
-
+    category_row = conn.execute("SELECT category FROM notes WHERE id=?", (note_id,)).fetchone()
     label_matches = []
-    if note_labels:
-        candidates = conn.execute("""
-            SELECT id, title, color, labels
+    if category_row and category_row["category"] and category_row["category"] != "other":
+        label_matches = conn.execute("""
+            SELECT id, title, color
             FROM notes
-            WHERE id!=?
+            WHERE category=? AND id!=?
             ORDER BY updated_at DESC
-            LIMIT 200
-        """, (note_id,)).fetchall()
-        for c in candidates:
-            try:
-                labels = {stem_word(x) for x in json.loads(c["labels"] or "[]") if isinstance(x, str)}
-            except Exception:
-                labels = set()
-            overlap = sorted(note_labels.intersection(labels))
-            if overlap:
-                label_matches.append({
-                    "id": c["id"],
-                    "title": c["title"],
-                    "color": c["color"],
-                    "score": 0.0,
-                    "same_label": True,
-                    "shared_labels": overlap[:3]
-                })
+            LIMIT 8
+        """, (category_row["category"], note_id)).fetchall()
     conn.close()
 
     connected = [dict(r) for r in rows]
@@ -567,8 +545,13 @@ def get_connections(note_id: int):
     for m in label_matches:
         if m["id"] in existing_ids:
             continue
-        connected.append(m)
-    connected.sort(key=lambda x: x.get("score", 0), reverse=True)
+        connected.append({
+            "id": m["id"],
+            "title": m["title"],
+            "color": m["color"],
+            "score": 0.0,
+            "same_label": True
+        })
     return connected
 
 

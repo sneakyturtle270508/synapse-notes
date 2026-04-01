@@ -52,8 +52,7 @@ function renderNoteList() {
 
 function matchesNoteFilter(note) {
   if (!noteFilter) return true;
-  const labels = Array.isArray(note.labels) ? note.labels.join(' ') : '';
-  const haystack = `${note.title} ${note.category || ''} ${labels} ${note.content || ''}`.toLowerCase();
+  const haystack = `${note.title} ${note.category || ''} ${note.content || ''}`.toLowerCase();
   return haystack.includes(noteFilter);
 }
 
@@ -106,9 +105,7 @@ async function loadConnections(noteId) {
     conns.forEach(c => {
       const chip = document.createElement('div');
       chip.className = 'conn-chip';
-      const scoreText = c.same_label
-        ? `same label${Array.isArray(c.shared_labels) && c.shared_labels.length ? ` · ${c.shared_labels.join(', ')}` : ''}`
-        : `${Math.round(c.score * 100)}%`;
+      const scoreText = c.same_label ? 'same label' : `${Math.round(c.score * 100)}%`;
       chip.innerHTML = `
         <div class="conn-dot" style="background:${c.color}"></div>
         <span>${escHtml(c.title)}</span>
