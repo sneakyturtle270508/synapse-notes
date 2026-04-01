@@ -4,6 +4,7 @@ let activeNoteId = null;
 let saveTimer = null;
 let graphData = { nodes: [], links: [] };
 let currentView = 'notes';
+let noteFilter = '';
 
 const noteList = document.getElementById('note-list');
 const emptyState = document.getElementById('empty-state');
@@ -16,6 +17,8 @@ const editorView = document.getElementById('editor-view');
 const graphView = document.getElementById('graph-view');
 const graphCanvas = document.getElementById('graph-canvas');
 const graphTooltip = document.getElementById('graph-tooltip');
+const noteSearchInput = document.getElementById('note-search');
+const graphFitBtn = document.getElementById('graph-fit-btn');
 
 async function fetchNotes() {
   const res = await fetch(`${API}/api/notes`);
@@ -25,11 +28,13 @@ async function fetchNotes() {
 
 function renderNoteList() {
   noteList.innerHTML = '';
-  if (notes.length === 0) {
-    noteList.innerHTML = '<div style="padding:12px 8px;font-size:12px;color:var(--text3)">No notes yet</div>';
+  const visibleNotes = notes.filter(matchesNoteFilter);
+  if (visibleNotes.length === 0) {
+    const msg = notes.length === 0 ? 'No notes yet' : 'No matching notes';
+    noteList.innerHTML = `<div style="padding:12px 8px;font-size:12px;color:var(--text3)">${msg}</div>`;
     return;
   }
-  notes.forEach(n => {
+  visibleNotes.forEach(n => {
     const item = document.createElement('div');
     item.className = 'note-item' + (n.id === activeNoteId ? ' active' : '');
     item.dataset.id = n.id;
@@ -43,6 +48,13 @@ function renderNoteList() {
     item.addEventListener('click', () => openNote(n.id));
     noteList.appendChild(item);
   });
+}
+
+function matchesNoteFilter(note) {
+  if (!noteFilter) return true;
+  const labels = Array.isArray(note.labels) ? note.labels.join(' ') : '';
+  const haystack = `${note.title} ${note.category || ''} ${labels} ${note.content || ''}`.toLowerCase();
+  return haystack.includes(noteFilter);
 }
 
 function escHtml(s) {
@@ -94,10 +106,13 @@ async function loadConnections(noteId) {
     conns.forEach(c => {
       const chip = document.createElement('div');
       chip.className = 'conn-chip';
+      const scoreText = c.same_label
+        ? `same label${Array.isArray(c.shared_labels) && c.shared_labels.length ? ` · ${c.shared_labels.join(', ')}` : ''}`
+        : `${Math.round(c.score * 100)}%`;
       chip.innerHTML = `
         <div class="conn-dot" style="background:${c.color}"></div>
         <span>${escHtml(c.title)}</span>
-        <span class="conn-score">${Math.round(c.score * 100)}%</span>
+        <span class="conn-score">${scoreText}</span>
       `;
       chip.addEventListener('click', () => openNote(c.id));
       connectionsList.appendChild(chip);
@@ -153,6 +168,7 @@ async function saveNote() {
     note.content = content;
     if (data.color) note.color = data.color;
     if (data.category) note.category = data.category;
+    if (Array.isArray(data.labels)) note.labels = data.labels;
   }
   renderNoteList();
   renderCategoryTag(note);
@@ -186,9 +202,11 @@ async function loadGraph() {
 
 let sim, graphCtx;
 let pan = { x: 0, y: 0 };
+let zoom = 1;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 let graphNodes = [];
+let graphLinks = [];
 
 function renderGraph() {
   const container = graphCanvas.parentElement;
@@ -205,34 +223,32 @@ function renderGraph() {
   graphCtx.scale(dpr, dpr);
 
   graphNodes = graphData.nodes.map(n => ({ ...n }));
-  const links = graphData.links.map(l => ({ ...l }));
+  graphLinks = graphData.links.map(l => ({ ...l }));
 
   if (sim) sim.stop();
-
-  // Padding so nodes don't go to edge
-  const PAD = 80;
+  pan = { x: 0, y: 0 };
+  zoom = 1;
 
   sim = d3.forceSimulation(graphNodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(140).strength(0.4))
+    .force('link', d3.forceLink(graphLinks).id(d => d.id).distance(140).strength(0.4))
     .force('charge', d3.forceManyBody().strength(-350))
     .force('center', d3.forceCenter(W / 2, H / 2))
     .force('collide', d3.forceCollide(55))
-    .force('bound', () => {
-      // Keep nodes within canvas bounds
-      graphNodes.forEach(n => {
-        n.x = Math.max(PAD, Math.min(W - PAD, n.x || W / 2));
-        n.y = Math.max(PAD, Math.min(H - PAD, n.y || H / 2));
-      });
-    })
-    .on('tick', () => drawGraph(graphNodes, links, W, H));
+    .alphaDecay(0.03)
+    .on('tick', () => drawGraph(graphNodes, graphLinks, W, H))
+    .on('end', () => {
+      fitGraphToViewport(W, H);
+      sim.alphaTarget(0.015).restart();
+    });
 
-  setupGraphInteraction(graphNodes, links, W, H);
+  setupGraphInteraction(graphNodes, graphLinks, W, H);
 }
 
 function drawGraph(nodes, links, W, H) {
   graphCtx.save();
   graphCtx.clearRect(0, 0, W, H);
   graphCtx.translate(pan.x, pan.y);
+  graphCtx.scale(zoom, zoom);
 
   // Draw edges
   graphCtx.lineWidth = 1;
@@ -284,8 +300,8 @@ function setupGraphInteraction(nodes, links, W, H) {
   function canvasPos(clientX, clientY) {
     const rect = graphCanvas.getBoundingClientRect();
     return {
-      x: clientX - rect.left - pan.x,
-      y: clientY - rect.top - pan.y
+      x: (clientX - rect.left - pan.x) / zoom,
+      y: (clientY - rect.top - pan.y) / zoom
     };
   }
 
@@ -316,9 +332,6 @@ function setupGraphInteraction(nodes, links, W, H) {
     if (isPanning) {
       pan.x = e.clientX - panStart.x;
       pan.y = e.clientY - panStart.y;
-      // Clamp pan so you can't pan too far off screen
-      pan.x = Math.max(-W * 0.5, Math.min(W * 0.5, pan.x));
-      pan.y = Math.max(-H * 0.5, Math.min(H * 0.5, pan.y));
       drawGraph(nodes, links, W, H);
       return;
     }
@@ -352,10 +365,43 @@ function setupGraphInteraction(nodes, links, W, H) {
     if (n) { switchView('notes'); openNote(n.id); }
   };
 
+  graphCanvas.onwheel = e => {
+    e.preventDefault();
+    const rect = graphCanvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const worldX = (mouseX - pan.x) / zoom;
+    const worldY = (mouseY - pan.y) / zoom;
+
+    const nextZoom = Math.max(0.35, Math.min(2.5, zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    zoom = nextZoom;
+
+    pan.x = mouseX - worldX * zoom;
+    pan.y = mouseY - worldY * zoom;
+    drawGraph(nodes, links, W, H);
+  };
+
   graphCanvas.onmouseleave = () => {
     graphTooltip.style.display = 'none';
     isPanning = false;
   };
+}
+
+function fitGraphToViewport(W, H) {
+  if (!graphNodes.length) return;
+  const minX = Math.min(...graphNodes.map(n => n.x || 0));
+  const maxX = Math.max(...graphNodes.map(n => n.x || 0));
+  const minY = Math.min(...graphNodes.map(n => n.y || 0));
+  const maxY = Math.max(...graphNodes.map(n => n.y || 0));
+  const graphW = Math.max(1, maxX - minX);
+  const graphH = Math.max(1, maxY - minY);
+  const padding = 70;
+  zoom = Math.min((W - padding * 2) / graphW, (H - padding * 2) / graphH, 1.6);
+  zoom = Math.max(0.35, zoom);
+  pan.x = W / 2 - ((minX + maxX) / 2) * zoom;
+  pan.y = H / 2 - ((minY + maxY) / 2) * zoom;
+  drawGraph(graphNodes, graphLinks, W, H);
 }
 
 function highlightGraphNode(id) {
@@ -460,6 +506,14 @@ document.getElementById('new-note-btn').addEventListener('click', createNote);
 document.getElementById('delete-note-btn').addEventListener('click', deleteNote);
 noteTitleEl.addEventListener('input', scheduleSave);
 noteContentEl.addEventListener('input', scheduleSave);
+noteSearchInput.addEventListener('input', e => {
+  noteFilter = e.target.value.trim().toLowerCase();
+  renderNoteList();
+});
+graphFitBtn.addEventListener('click', () => {
+  if (!graphCanvas.parentElement) return;
+  fitGraphToViewport(graphCanvas.parentElement.clientWidth, graphCanvas.parentElement.clientHeight);
+});
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
