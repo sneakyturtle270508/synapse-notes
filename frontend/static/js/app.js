@@ -165,6 +165,7 @@ async function saveNote() {
     note.content = content;
     if (data.color) note.color = data.color;
     if (data.category) note.category = data.category;
+    if (Array.isArray(data.labels)) note.labels = data.labels;
   }
   renderNoteList();
   renderCategoryTag(note);
