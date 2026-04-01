@@ -34,6 +34,10 @@
       <button class="tab" data-view="graph">Graph</button>
     </div>
 
+    <div id="note-search-wrap">
+      <input id="note-search" type="text" placeholder="Search notes or labels...">
+    </div>
+
     <div id="note-list-wrap">
       <div id="note-list"></div>
     </div>
@@ -83,7 +87,8 @@
     <div id="graph-view" class="hidden">
       <canvas id="graph-canvas"></canvas>
       <div id="graph-tooltip"></div>
-      <div id="graph-hint">drag nodes · hover to inspect</div>
+      <button id="graph-fit-btn" title="Fit graph to screen">Fit view</button>
+      <div id="graph-hint">drag map · wheel to zoom · drag nodes · hover to inspect</div>
     </div>
   </main>
 </div>

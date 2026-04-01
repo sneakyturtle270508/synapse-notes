@@ -436,8 +436,32 @@ def get_connections(note_id: int):
         WHERE l.source_id=? OR l.target_id=?
         ORDER BY l.score DESC
     """, (note_id, note_id, note_id)).fetchall()
+
+    category_row = conn.execute("SELECT category FROM notes WHERE id=?", (note_id,)).fetchone()
+    label_matches = []
+    if category_row and category_row["category"] and category_row["category"] != "other":
+        label_matches = conn.execute("""
+            SELECT id, title, color
+            FROM notes
+            WHERE category=? AND id!=?
+            ORDER BY updated_at DESC
+            LIMIT 8
+        """, (category_row["category"], note_id)).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+
+    connected = [dict(r) for r in rows]
+    existing_ids = {r["id"] for r in connected}
+    for m in label_matches:
+        if m["id"] in existing_ids:
+            continue
+        connected.append({
+            "id": m["id"],
+            "title": m["title"],
+            "color": m["color"],
+            "score": 0.0,
+            "same_label": True
+        })
+    return connected
 
 
 @app.get("/api/path")
