@@ -82,6 +82,26 @@ body {
   gap: 4px;
 }
 
+#note-search-wrap {
+  padding: 10px 10px 0;
+}
+
+#note-search {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+}
+#note-search:focus {
+  border-color: var(--accent);
+  color: var(--text);
+}
+#note-search::placeholder { color: var(--text3); }
+
 .tab {
   flex: 1;
   padding: 6px 0;
@@ -302,6 +322,24 @@ body {
   color: var(--text3);
   letter-spacing: 0.05em;
   pointer-events: none;
+}
+
+#graph-fit-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  background: var(--surface2);
+  color: var(--text2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+#graph-fit-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 #saving-indicator {
