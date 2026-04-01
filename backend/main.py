@@ -520,7 +520,8 @@ def get_graph():
 @app.get("/api/notes/{note_id}/connections")
 def get_connections(note_id: int):
     conn = get_db()
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT n.id, n.title, n.color, l.score
         FROM links l
         JOIN notes n ON (n.id = CASE WHEN l.source_id=? THEN l.target_id ELSE l.source_id END)
