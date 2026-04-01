@@ -203,6 +203,7 @@ let zoom = 1;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 let graphNodes = [];
+let graphLinks = [];
 
 function renderGraph() {
   const container = graphCanvas.parentElement;
@@ -219,14 +220,14 @@ function renderGraph() {
   graphCtx.scale(dpr, dpr);
 
   graphNodes = graphData.nodes.map(n => ({ ...n }));
-  const links = graphData.links.map(l => ({ ...l }));
+  graphLinks = graphData.links.map(l => ({ ...l }));
 
   if (sim) sim.stop();
   pan = { x: 0, y: 0 };
   zoom = 1;
 
   sim = d3.forceSimulation(graphNodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(140).strength(0.4))
+    .force('link', d3.forceLink(graphLinks).id(d => d.id).distance(140).strength(0.4))
     .force('charge', d3.forceManyBody().strength(-350))
     .force('center', d3.forceCenter(W / 2, H / 2))
     .force('collide', d3.forceCollide(55))
