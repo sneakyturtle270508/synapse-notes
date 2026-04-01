@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3, json, httpx, math, os, time, asyncio
+import sqlite3, json, httpx, math, os, time, asyncio, heapq
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -23,9 +23,8 @@ DB = str(BASE_DIR / "synapse.db")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen2.5:7b")
-LINK_THRESHOLD = float(os.getenv("LINK_THRESHOLD", "0.78"))
+LINK_THRESHOLD = float(os.getenv("LINK_THRESHOLD", "0.65"))
 
-# Colors are assigned dynamically per unique category label
 PALETTE = [
     "#4a90d9", "#a8c44e", "#9b7fd4", "#d4a017",
     "#4ecdc4", "#f7a35c", "#e05c5c", "#e07cb5",
@@ -90,40 +89,80 @@ migrate_db()
 
 
 async def classify_note(text: str) -> str:
-    prompt = f"""Read this note and invent a short 1-2 word category label that best describes its topic.
+    clean = text.strip()
+    if len(clean) < 15:
+        return "other"
+
+    prompt = f"""You are tagging a personal note with a short topic label.
 
 Note:
-{text[:600]}
+{clean[:600]}
 
-Rules:
-- Reply with ONLY the category label, nothing else
-- Use lowercase, no punctuation
-- Be specific: prefer "css styling" over "tech", "weight training" over "health"
-- Examples of good labels: "web development", "machine learning", "personal finance", "meal planning", "creative writing", "python scripting"
-- Invent the best label for this specific note"""
+What is this note ACTUALLY about? Give a specific 1-3 word label in lowercase.
+- "css styling" not "technology"
+- "strength training" not "health"
+- "trip planning" not "travel"
+- "python scripting" not "coding"
+
+Reply with ONLY the label. Nothing else."""
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{OLLAMA_URL}/api/chat",
-                json={{
+                json={
                     "model": CHAT_MODEL,
                     "stream": False,
                     "messages": [
-                        {{"role": "system", "content": "You are a precise note classifier. Reply with only a short category label, nothing else."}},
-                        {{"role": "user", "content": prompt}}
+                        {"role": "system", "content": "Reply with only a short lowercase topic label. No punctuation, no explanation."},
+                        {"role": "user", "content": prompt}
                     ]
-                }}
+                }
             )
             resp.raise_for_status()
             raw = resp.json()["message"]["content"].strip().lower()
-            # keep only first line, strip punctuation
-            label = raw.split("\n")[0].strip().rstrip(".,!?")
-            # max 3 words
+            label = raw.split("\n")[0].strip().rstrip(".,!?\"'")
             label = " ".join(label.split()[:3])
             return label if label else "other"
     except Exception as e:
         print(f"Classify error: {e}")
+    return "other"
+
+
+async def reclassify_cluster(note_ids: list[int], titles_contents: list[str]) -> str:
+    """Given a cluster of related notes, ask AI for one consistent category label."""
+    notes_text = "\n".join(f"- {t[:200]}" for t in titles_contents[:10])
+    prompt = f"""These notes are semantically related to each other. Give them ONE shared category label.
+
+Notes in this cluster:
+{notes_text}
+
+Rules:
+- 1-3 words, lowercase only
+- Pick the label that best describes what ALL these notes have in common
+- Be specific: "frontend development" not "tech", "strength training" not "health"
+- Reply with ONLY the label, nothing else"""
+
+    try:
+        async with httpx.AsyncClient(timeout=40) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/chat",
+                json={
+                    "model": CHAT_MODEL,
+                    "stream": False,
+                    "messages": [
+                        {"role": "system", "content": "Reply with only a short lowercase category label. No explanation."},
+                        {"role": "user", "content": prompt}
+                    ]
+                }
+            )
+            resp.raise_for_status()
+            raw = resp.json()["message"]["content"].strip().lower()
+            label = raw.split("\n")[0].strip().rstrip(".,!?\"'")
+            label = " ".join(label.split()[:3])
+            return label if label else "other"
+    except Exception as e:
+        print(f"Reclassify cluster error: {e}")
     return "other"
 
 
@@ -175,7 +214,106 @@ async def recompute_links(note_id: int, embedding: list[float]):
     conn.close()
 
 
-COLORS = ["#e05c5c", "#4a90d9", "#a8c44e", "#d4a017", "#9b7fd4", "#4ecdc4", "#f7a35c"]
+def build_clusters(notes_with_embeddings: list[dict], threshold: float = 0.72) -> list[list[int]]:
+    """Greedy clustering — group notes that are similar to each other."""
+    ids = [n["id"] for n in notes_with_embeddings]
+    embs = [json.loads(n["embedding"]) for n in notes_with_embeddings]
+    n = len(ids)
+
+    visited = set()
+    clusters = []
+
+    for i in range(n):
+        if ids[i] in visited:
+            continue
+        cluster = [ids[i]]
+        visited.add(ids[i])
+        for j in range(n):
+            if ids[j] in visited:
+                continue
+            if cosine_similarity(embs[i], embs[j]) >= threshold:
+                cluster.append(ids[j])
+                visited.add(ids[j])
+        clusters.append(cluster)
+
+    return clusters
+
+
+_recluster_lock = asyncio.Lock()
+_graph_version = 0
+
+async def auto_recluster():
+    """Runs in background after every save — reclusters all notes silently."""
+    if _recluster_lock.locked():
+        return
+    async with _recluster_lock:
+        try:
+            conn = get_db()
+            rows = conn.execute(
+                "SELECT id, title, content, embedding FROM notes WHERE embedding IS NOT NULL"
+            ).fetchall()
+            conn.close()
+
+            if len(rows) < 2:
+                return
+
+            # Filter out stub notes with no real content
+            notes_data = [
+                dict(r) for r in rows
+                if len((r["title"] + " " + r["content"]).strip()) > 20
+                and r["title"].lower() not in ("new note", "untitled", "test", "")
+            ]
+
+            if len(notes_data) < 1:
+                return
+            clusters = build_clusters(notes_data, threshold=LINK_THRESHOLD)
+            note_lookup = {r["id"]: f"{r['title']}\n{r['content']}" for r in notes_data}
+
+            CATEGORY_COLOR_MAP.clear()
+
+            for cluster in clusters:
+                texts = [note_lookup[nid] for nid in cluster if nid in note_lookup]
+                if len(cluster) == 1:
+                    label = await classify_note(texts[0] if texts else "")
+                else:
+                    label = await reclassify_cluster(cluster, texts)
+
+                color = get_category_color(label)
+                conn = get_db()
+                for nid in cluster:
+                    conn.execute(
+                        "UPDATE notes SET category=?, color=? WHERE id=?",
+                        (label, color, nid)
+                    )
+                # Force-link all notes in the same cluster
+                for i in range(len(cluster)):
+                    for j in range(i + 1, len(cluster)):
+                        a, b = cluster[i], cluster[j]
+                        # Calculate actual score if both have embeddings, else use minimum threshold
+                        try:
+                            ea = json.loads(note_lookup.get(a, "") or "{}")
+                            eb = json.loads(note_lookup.get(b, "") or "{}")
+                        except Exception:
+                            ea, eb = None, None
+                        # Use stored embeddings for score
+                        score = LINK_THRESHOLD  # fallback
+                        try:
+                            emb_a = next(n["embedding"] for n in notes_data if n["id"] == a)
+                            emb_b = next(n["embedding"] for n in notes_data if n["id"] == b)
+                            score = round(cosine_similarity(json.loads(emb_a), json.loads(emb_b)), 4)
+                        except Exception:
+                            pass
+                        conn.execute(
+                            "INSERT OR REPLACE INTO links (source_id, target_id, score) VALUES (?,?,?)",
+                            (min(a, b), max(a, b), max(score, LINK_THRESHOLD))
+                        )
+                conn.commit()
+                conn.close()
+                print(f"[recluster] {cluster} -> '{label}'")
+            global _graph_version
+            _graph_version += 1
+        except Exception as e:
+            print(f"[recluster] error: {e}")
 
 
 class NoteCreate(BaseModel):
@@ -199,7 +337,6 @@ def list_notes():
 @app.post("/api/notes")
 async def create_note(data: NoteCreate):
     now = int(time.time())
-
     conn = get_db()
     cur = conn.execute(
         "INSERT INTO notes (title, content, color, category, created_at, updated_at) VALUES (?,?,?,?,?,?)",
@@ -210,11 +347,7 @@ async def create_note(data: NoteCreate):
     conn.close()
 
     text = f"{data.title}\n{data.content}".strip()
-
-    category, embedding = await asyncio.gather(
-        classify_note(text),
-        get_embedding(text)
-    )
+    category, embedding = await asyncio.gather(classify_note(text), get_embedding(text))
     color = get_category_color(category)
 
     conn = get_db()
@@ -227,6 +360,7 @@ async def create_note(data: NoteCreate):
 
     if embedding:
         await recompute_links(note_id, embedding)
+        asyncio.create_task(auto_recluster())
 
     return {"id": note_id, "color": color, "category": category}
 
@@ -248,11 +382,7 @@ async def update_note(note_id: int, data: NoteUpdate):
     conn.close()
 
     text = f"{title}\n{content}".strip()
-
-    category, embedding = await asyncio.gather(
-        classify_note(text),
-        get_embedding(text)
-    )
+    category, embedding = await asyncio.gather(classify_note(text), get_embedding(text))
     color = get_category_color(category)
 
     conn = get_db()
@@ -265,6 +395,7 @@ async def update_note(note_id: int, data: NoteUpdate):
 
     if embedding:
         await recompute_links(note_id, embedding)
+        asyncio.create_task(auto_recluster())
 
     return {"ok": True, "color": color, "category": category}
 
@@ -278,10 +409,15 @@ def delete_note(note_id: int):
     return {"ok": True}
 
 
+@app.get("/api/graph/version")
+def graph_version():
+    return {"version": _graph_version}
+
+
 @app.get("/api/graph")
 def get_graph():
     conn = get_db()
-    notes = conn.execute("SELECT id, title, color FROM notes").fetchall()
+    notes = conn.execute("SELECT id, title, color, category FROM notes").fetchall()
     links = conn.execute("SELECT source_id, target_id, score FROM links").fetchall()
     conn.close()
     return {
@@ -302,6 +438,107 @@ def get_connections(note_id: int):
     """, (note_id, note_id, note_id)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/path")
+def find_path(source: int, target: int):
+    conn = get_db()
+    notes = {r["id"]: {"title": r["title"], "color": r["color"]}
+             for r in conn.execute("SELECT id, title, color FROM notes").fetchall()}
+    links = conn.execute("SELECT source_id, target_id, score FROM links").fetchall()
+    conn.close()
+
+    if source not in notes or target not in notes:
+        return {"found": False, "path": []}
+
+    if source == target:
+        n = notes[source]
+        return {"found": True, "path": [{"id": source, "title": n["title"], "color": n["color"]}]}
+
+    graph: dict[int, list[tuple[int, float]]] = {nid: [] for nid in notes}
+    for l in links:
+        s, t, sc = l["source_id"], l["target_id"], l["score"]
+        w = 1.0 - sc
+        graph[s].append((t, w))
+        graph[t].append((s, w))
+
+    dist = {nid: float("inf") for nid in notes}
+    prev: dict[int, Optional[int]] = {nid: None for nid in notes}
+    dist[source] = 0.0
+    heap = [(0.0, source)]
+
+    while heap:
+        d, u = heapq.heappop(heap)
+        if d > dist[u]:
+            continue
+        if u == target:
+            break
+        for v, w in graph.get(u, []):
+            nd = d + w
+            if nd < dist[v]:
+                dist[v] = nd
+                prev[v] = u
+                heapq.heappush(heap, (nd, v))
+
+    if dist[target] == float("inf"):
+        return {"found": False, "path": []}
+
+    path = []
+    cur: Optional[int] = target
+    while cur is not None:
+        n = notes[cur]
+        path.append({"id": cur, "title": n["title"], "color": n["color"]})
+        cur = prev[cur]
+    path.reverse()
+
+    return {"found": True, "path": path, "hops": len(path) - 1}
+
+
+@app.post("/api/recluster")
+async def recluster():
+    """
+    Re-clusters all notes by embedding similarity and gives each cluster
+    a consistent AI-generated category label.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, title, content, embedding FROM notes WHERE embedding IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        return {"updated": 0, "clusters": 0}
+
+    notes_data = [dict(r) for r in rows]
+    clusters = build_clusters(notes_data, threshold=LINK_THRESHOLD)
+    note_lookup = {r["id"]: f"{r['title']}\n{r['content']}" for r in notes_data}
+
+    updated = 0
+    # Reset color map so clusters get fresh consistent colors
+    CATEGORY_COLOR_MAP.clear()
+
+    for cluster in clusters:
+        texts = [note_lookup[nid] for nid in cluster if nid in note_lookup]
+
+        if len(cluster) == 1:
+            label = await classify_note(texts[0] if texts else "")
+        else:
+            label = await reclassify_cluster(cluster, texts)
+
+        color = get_category_color(label)
+
+        conn = get_db()
+        for nid in cluster:
+            conn.execute(
+                "UPDATE notes SET category=?, color=? WHERE id=?",
+                (label, color, nid)
+            )
+        conn.commit()
+        conn.close()
+        updated += len(cluster)
+        print(f"Cluster {cluster} → '{label}' ({color})")
+
+    return {"updated": updated, "clusters": len(clusters)}
 
 
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
