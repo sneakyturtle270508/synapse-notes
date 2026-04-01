@@ -560,6 +560,16 @@ def get_connections(note_id: int):
                     "same_label": True,
                     "shared_labels": overlap[:3]
                 })
+    category_row = conn.execute("SELECT category FROM notes WHERE id=?", (note_id,)).fetchone()
+    label_matches = []
+    if category_row and category_row["category"] and category_row["category"] != "other":
+        label_matches = conn.execute("""
+            SELECT id, title, color
+            FROM notes
+            WHERE category=? AND id!=?
+            ORDER BY updated_at DESC
+            LIMIT 8
+        """, (category_row["category"], note_id)).fetchall()
     conn.close()
 
     connected = [dict(r) for r in rows]
@@ -569,6 +579,13 @@ def get_connections(note_id: int):
             continue
         connected.append(m)
     connected.sort(key=lambda x: x.get("score", 0), reverse=True)
+        connected.append({
+            "id": m["id"],
+            "title": m["title"],
+            "color": m["color"],
+            "score": 0.0,
+            "same_label": True
+        })
     return connected
 
 
