@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3, json, httpx, math, os, time, asyncio, heapq, re
+import sqlite3, json, httpx, math, os, time, asyncio, heapq
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -31,14 +31,6 @@ PALETTE = [
     "#5cc8e0", "#d4724a", "#7dd48a", "#c4a44e",
 ]
 CATEGORY_COLOR_MAP: dict[str, str] = {}
-STOP_WORDS = {
-    "the", "and", "for", "that", "with", "this", "from", "your", "you", "are", "was",
-    "were", "have", "has", "had", "not", "but", "about", "into", "over", "under", "then",
-    "than", "like", "just", "they", "them", "their", "will", "would", "could", "should",
-    "can", "its", "it's", "our", "out", "very", "more", "most", "some", "many", "much",
-    "what", "when", "where", "which", "while", "also", "only", "because", "been", "being",
-    "a", "an", "to", "of", "in", "on", "at", "is", "it", "as", "by", "or", "if"
-}
 
 def get_category_color(category: str) -> str:
     if category not in CATEGORY_COLOR_MAP:
@@ -89,9 +81,6 @@ def migrate_db():
     cols = [r[1] for r in conn.execute("PRAGMA table_info(notes)").fetchall()]
     if "category" not in cols:
         conn.execute("ALTER TABLE notes ADD COLUMN category TEXT NOT NULL DEFAULT 'other'")
-        conn.commit()
-    if "labels" not in cols:
-        conn.execute("ALTER TABLE notes ADD COLUMN labels TEXT")
         conn.commit()
     conn.close()
 
@@ -184,69 +173,6 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     if mag_a == 0 or mag_b == 0:
         return 0.0
     return dot / (mag_a * mag_b)
-
-
-def stem_word(word: str) -> str:
-    w = word.lower().strip()
-    if len(w) <= 3:
-        return w
-    if w.endswith("ing") and len(w) > 5:
-        w = w[:-3]
-        if len(w) >= 2 and w[-1] == w[-2]:
-            w = w[:-1]
-    elif w.endswith("ed") and len(w) > 4:
-        w = w[:-2]
-    elif w.endswith("es") and len(w) > 4:
-        w = w[:-2]
-    elif w.endswith("s") and len(w) > 3:
-        w = w[:-1]
-    if w.endswith("i") and len(w) > 3:
-        w = w[:-1] + "y"
-    return w
-
-
-def extract_labels(text: str, limit: int = 8) -> list[str]:
-    words = re.findall(r"[a-zA-Z][a-zA-Z'-]+", text.lower())
-    counts: dict[str, int] = {}
-    for raw in words:
-        if raw in STOP_WORDS:
-            continue
-        token = stem_word(raw)
-        if len(token) < 3 or token in STOP_WORDS:
-            continue
-        counts[token] = counts.get(token, 0) + 1
-
-    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    return [w for w, _ in ranked[:limit]]
-
-
-def build_label_links(notes_rows: list[sqlite3.Row], min_overlap: int = 1) -> list[dict]:
-    note_labels: dict[int, set[str]] = {}
-    for row in notes_rows:
-        try:
-            parsed = json.loads(row["labels"] or "[]")
-            labels = {stem_word(x) for x in parsed if isinstance(x, str)}
-        except Exception:
-            labels = set()
-        note_labels[row["id"]] = labels
-
-    links: list[dict] = []
-    ids = [row["id"] for row in notes_rows]
-    for i in range(len(ids)):
-        for j in range(i + 1, len(ids)):
-            a, b = ids[i], ids[j]
-            overlap = note_labels[a].intersection(note_labels[b])
-            if len(overlap) < min_overlap:
-                continue
-            score = min(0.9, 0.5 + 0.1 * len(overlap))
-            links.append({
-                "source": min(a, b),
-                "target": max(a, b),
-                "score": round(score, 4),
-                "same_label": True,
-                "shared_labels": sorted(overlap)[:3]
-            })
-    return links
 
 
 async def get_embedding(text: str) -> Optional[list[float]]:
@@ -403,16 +329,9 @@ class NoteUpdate(BaseModel):
 @app.get("/api/notes")
 def list_notes():
     conn = get_db()
-    notes = conn.execute(
-        "SELECT id, title, content, color, category, labels, created_at, updated_at FROM notes ORDER BY updated_at DESC"
-    ).fetchall()
+    notes = conn.execute("SELECT id, title, content, color, category, created_at, updated_at FROM notes ORDER BY updated_at DESC").fetchall()
     conn.close()
-    out = []
-    for n in notes:
-        row = dict(n)
-        row["labels"] = json.loads(row["labels"]) if row.get("labels") else []
-        out.append(row)
-    return out
+    return [dict(n) for n in notes]
 
 
 @app.post("/api/notes")
@@ -428,14 +347,13 @@ async def create_note(data: NoteCreate):
     conn.close()
 
     text = f"{data.title}\n{data.content}".strip()
-    labels = extract_labels(text)
     category, embedding = await asyncio.gather(classify_note(text), get_embedding(text))
     color = get_category_color(category)
 
     conn = get_db()
     conn.execute(
-        "UPDATE notes SET category=?, color=?, embedding=?, labels=? WHERE id=?",
-        (category, color, json.dumps(embedding) if embedding else None, json.dumps(labels), note_id)
+        "UPDATE notes SET category=?, color=?, embedding=? WHERE id=?",
+        (category, color, json.dumps(embedding) if embedding else None, note_id)
     )
     conn.commit()
     conn.close()
@@ -444,7 +362,7 @@ async def create_note(data: NoteCreate):
         await recompute_links(note_id, embedding)
         asyncio.create_task(auto_recluster())
 
-    return {"id": note_id, "color": color, "category": category, "labels": labels}
+    return {"id": note_id, "color": color, "category": category}
 
 
 @app.put("/api/notes/{note_id}")
@@ -464,14 +382,13 @@ async def update_note(note_id: int, data: NoteUpdate):
     conn.close()
 
     text = f"{title}\n{content}".strip()
-    labels = extract_labels(text)
     category, embedding = await asyncio.gather(classify_note(text), get_embedding(text))
     color = get_category_color(category)
 
     conn = get_db()
     conn.execute(
-        "UPDATE notes SET category=?, color=?, embedding=?, labels=? WHERE id=?",
-        (category, color, json.dumps(embedding) if embedding else None, json.dumps(labels), note_id)
+        "UPDATE notes SET category=?, color=?, embedding=? WHERE id=?",
+        (category, color, json.dumps(embedding) if embedding else None, note_id)
     )
     conn.commit()
     conn.close()
@@ -480,7 +397,7 @@ async def update_note(note_id: int, data: NoteUpdate):
         await recompute_links(note_id, embedding)
         asyncio.create_task(auto_recluster())
 
-    return {"ok": True, "color": color, "category": category, "labels": labels}
+    return {"ok": True, "color": color, "category": category}
 
 
 @app.delete("/api/notes/{note_id}")
@@ -500,103 +417,35 @@ def graph_version():
 @app.get("/api/graph")
 def get_graph():
     conn = get_db()
-    notes = conn.execute("SELECT id, title, color, category, labels FROM notes").fetchall()
+    notes = conn.execute("SELECT id, title, color, category FROM notes").fetchall()
     links = conn.execute("SELECT source_id, target_id, score FROM links").fetchall()
-    label_links = build_label_links(notes)
     conn.close()
-    existing = {(min(l["source_id"], l["target_id"]), max(l["source_id"], l["target_id"])) for l in links}
-    merged_links = [{"source": l["source_id"], "target": l["target_id"], "score": l["score"]} for l in links]
-    for ll in label_links:
-        key = (ll["source"], ll["target"])
-        if key in existing:
-            continue
-        merged_links.append(ll)
     return {
-        "nodes": [{"id": n["id"], "title": n["title"], "color": n["color"], "category": n["category"]} for n in notes],
-        "links": merged_links
+        "nodes": [dict(n) for n in notes],
+        "links": [{"source": l["source_id"], "target": l["target_id"], "score": l["score"]} for l in links]
     }
 
 
 @app.get("/api/notes/{note_id}/connections")
 def get_connections(note_id: int):
     conn = get_db()
-    rows = conn.execute(
-        """
+    rows = conn.execute("""
         SELECT n.id, n.title, n.color, l.score
         FROM links l
         JOIN notes n ON (n.id = CASE WHEN l.source_id=? THEN l.target_id ELSE l.source_id END)
         WHERE l.source_id=? OR l.target_id=?
         ORDER BY l.score DESC
     """, (note_id, note_id, note_id)).fetchall()
-
-    note_row = conn.execute("SELECT category, labels FROM notes WHERE id=?", (note_id,)).fetchone()
-    note_labels = set()
-    if note_row and note_row["labels"]:
-        try:
-            note_labels = {stem_word(x) for x in json.loads(note_row["labels"]) if isinstance(x, str)}
-        except Exception:
-            note_labels = set()
-
-    label_matches = []
-    if note_labels:
-        candidates = conn.execute("""
-            SELECT id, title, color, labels
-            FROM notes
-            WHERE id!=?
-            ORDER BY updated_at DESC
-            LIMIT 200
-        """, (note_id,)).fetchall()
-        for c in candidates:
-            try:
-                labels = {stem_word(x) for x in json.loads(c["labels"] or "[]") if isinstance(x, str)}
-            except Exception:
-                labels = set()
-            overlap = sorted(note_labels.intersection(labels))
-            if overlap:
-                label_matches.append({
-                    "id": c["id"],
-                    "title": c["title"],
-                    "color": c["color"],
-                    "score": 0.0,
-                    "same_label": True,
-                    "shared_labels": overlap[:3]
-                })
-    category_row = conn.execute("SELECT category FROM notes WHERE id=?", (note_id,)).fetchone()
-    label_matches = []
-    if category_row and category_row["category"] and category_row["category"] != "other":
-        label_matches = conn.execute("""
-            SELECT id, title, color
-            FROM notes
-            WHERE category=? AND id!=?
-            ORDER BY updated_at DESC
-            LIMIT 8
-        """, (category_row["category"], note_id)).fetchall()
     conn.close()
-
-    connected = [dict(r) for r in rows]
-    existing_ids = {r["id"] for r in connected}
-    for m in label_matches:
-        if m["id"] in existing_ids:
-            continue
-        connected.append(m)
-    connected.sort(key=lambda x: x.get("score", 0), reverse=True)
-        connected.append({
-            "id": m["id"],
-            "title": m["title"],
-            "color": m["color"],
-            "score": 0.0,
-            "same_label": True
-        })
-    return connected
+    return [dict(r) for r in rows]
 
 
 @app.get("/api/path")
 def find_path(source: int, target: int):
     conn = get_db()
-    note_rows = conn.execute("SELECT id, title, color, labels FROM notes").fetchall()
-    notes = {r["id"]: {"title": r["title"], "color": r["color"]} for r in note_rows}
+    notes = {r["id"]: {"title": r["title"], "color": r["color"]}
+             for r in conn.execute("SELECT id, title, color FROM notes").fetchall()}
     links = conn.execute("SELECT source_id, target_id, score FROM links").fetchall()
-    label_links = build_label_links(note_rows)
     conn.close()
 
     if source not in notes or target not in notes:
@@ -609,15 +458,6 @@ def find_path(source: int, target: int):
     graph: dict[int, list[tuple[int, float]]] = {nid: [] for nid in notes}
     for l in links:
         s, t, sc = l["source_id"], l["target_id"], l["score"]
-        w = 1.0 - sc
-        graph[s].append((t, w))
-        graph[t].append((s, w))
-    existing = {(min(l["source_id"], l["target_id"]), max(l["source_id"], l["target_id"])) for l in links}
-    for l in label_links:
-        key = (l["source"], l["target"])
-        if key in existing:
-            continue
-        s, t, sc = l["source"], l["target"], l["score"]
         w = 1.0 - sc
         graph[s].append((t, w))
         graph[t].append((s, w))
