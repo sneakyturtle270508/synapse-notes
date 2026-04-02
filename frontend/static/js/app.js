@@ -80,7 +80,6 @@ function openNote(id) {
   activeNoteId = id;
   const note = notes.find(n => n.id === id);
   if (!note) return;
-
   emptyState.classList.add('hidden');
   editorPanel.classList.remove('hidden');
   noteTitleEl.value = note.title;
@@ -88,7 +87,6 @@ function openNote(id) {
   renderNoteList();
   renderCategoryTag(note);
   loadConnections(id);
-
   if (currentView === 'graph') highlightGraphNode(id);
 }
 
@@ -105,11 +103,10 @@ async function loadConnections(noteId) {
     conns.forEach(c => {
       const chip = document.createElement('div');
       chip.className = 'conn-chip';
-      const scoreText = c.same_label ? 'same label' : `${Math.round(c.score * 100)}%`;
       chip.innerHTML = `
         <div class="conn-dot" style="background:${c.color}"></div>
         <span>${escHtml(c.title)}</span>
-        <span class="conn-score">${scoreText}</span>
+        <span class="conn-score">${Math.round(c.score * 100)}%</span>
       `;
       chip.addEventListener('click', () => openNote(c.id));
       connectionsList.appendChild(chip);
@@ -165,7 +162,6 @@ async function saveNote() {
     note.content = content;
     if (data.color) note.color = data.color;
     if (data.category) note.category = data.category;
-    if (Array.isArray(data.labels)) note.labels = data.labels;
   }
   renderNoteList();
   renderCategoryTag(note);
@@ -184,9 +180,11 @@ function switchView(view) {
     editorView.classList.remove('hidden');
     graphView.classList.add('hidden');
     pathPanel.style.display = 'none';
+    pathBtn.style.display = 'none';
   } else {
     editorView.classList.add('hidden');
     graphView.classList.remove('hidden');
+    pathBtn.style.display = 'block';
     loadGraph();
   }
 }
@@ -231,10 +229,10 @@ function renderGraph() {
     .force('charge', d3.forceManyBody().strength(-350))
     .force('center', d3.forceCenter(W / 2, H / 2))
     .force('collide', d3.forceCollide(55))
-    .on('tick', () => drawGraph(graphNodes, links, W, H))
+    .on('tick', () => drawGraph(graphNodes, graphLinks, W, H))
     .on('end', () => fitGraphToViewport(W, H));
 
-  setupGraphInteraction(graphNodes, links, W, H);
+  setupGraphInteraction(graphNodes, graphLinks, W, H);
 }
 
 function drawGraph(nodes, links, W, H) {
@@ -243,7 +241,6 @@ function drawGraph(nodes, links, W, H) {
   graphCtx.translate(pan.x, pan.y);
   graphCtx.scale(zoom, zoom);
 
-  // Draw edges
   graphCtx.lineWidth = 1;
   links.forEach(l => {
     const alpha = 0.08 + (l.score || 0) * 0.2;
@@ -254,7 +251,6 @@ function drawGraph(nodes, links, W, H) {
     graphCtx.stroke();
   });
 
-  // Draw nodes
   nodes.forEach(n => {
     const isActive = n.id === activeNoteId;
     const r = isActive ? 11 : 8;
@@ -271,14 +267,12 @@ function drawGraph(nodes, links, W, H) {
     graphCtx.fillStyle = n.color;
     graphCtx.fill();
 
-    // Category label above node
     if (n.category && n.category !== 'other') {
       graphCtx.font = '10px DM Sans, sans-serif';
       graphCtx.fillStyle = n.color + 'aa';
       graphCtx.fillText(n.category, n.x - graphCtx.measureText(n.category).width / 2, n.y - r - 6);
     }
 
-    // Title label
     graphCtx.font = `${isActive ? '500 ' : ''}12px DM Sans, sans-serif`;
     graphCtx.fillStyle = isActive ? 'rgba(232,232,240,0.95)' : 'rgba(136,136,168,0.85)';
     graphCtx.fillText(n.title, n.x + r + 6, n.y + 4);
@@ -334,7 +328,7 @@ function setupGraphInteraction(nodes, links, W, H) {
       graphTooltip.style.display = 'block';
       graphTooltip.style.left = (e.clientX - rect.left + 16) + 'px';
       graphTooltip.style.top = (e.clientY - rect.top - 10) + 'px';
-      graphTooltip.textContent = n.title + (n.category ? ` · ${n.category}` : '');
+      graphTooltip.textContent = n.title + (n.category && n.category !== 'other' ? ` · ${n.category}` : '');
       graphCanvas.style.cursor = 'grab';
     } else {
       graphTooltip.style.display = 'none';
@@ -342,7 +336,7 @@ function setupGraphInteraction(nodes, links, W, H) {
     }
   };
 
-  graphCanvas.onmouseup = e => {
+  graphCanvas.onmouseup = () => {
     if (draggingNode) {
       draggingNode.fx = null;
       draggingNode.fy = null;
@@ -363,13 +357,9 @@ function setupGraphInteraction(nodes, links, W, H) {
     const rect = graphCanvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-
     const worldX = (mouseX - pan.x) / zoom;
     const worldY = (mouseY - pan.y) / zoom;
-
-    const nextZoom = Math.max(0.35, Math.min(2.5, zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
-    zoom = nextZoom;
-
+    zoom = Math.max(0.35, Math.min(2.5, zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
     pan.x = mouseX - worldX * zoom;
     pan.y = mouseY - worldY * zoom;
     drawGraph(nodes, links, W, H);
@@ -394,8 +384,7 @@ function fitGraphToViewport(W, H) {
   zoom = Math.max(0.35, zoom);
   pan.x = W / 2 - ((minX + maxX) / 2) * zoom;
   pan.y = H / 2 - ((minY + maxY) / 2) * zoom;
-  const links = graphData.links.map(l => ({ ...l }));
-  drawGraph(graphNodes, links, W, H);
+  drawGraph(graphNodes, graphLinks, W, H);
 }
 
 function highlightGraphNode(id) {
@@ -411,7 +400,6 @@ pathBtn.style.cssText = `
   padding:9px 15px;cursor:pointer;font-size:13px;
   font-family:'DM Sans',sans-serif;z-index:999;
   display:none;box-shadow:0 4px 16px rgba(124,106,247,0.4);
-  transition:opacity 0.2s;
 `;
 document.body.appendChild(pathBtn);
 
@@ -424,20 +412,15 @@ pathPanel.style.cssText = `
   box-shadow:0 8px 32px rgba(0,0,0,0.5);
 `;
 pathPanel.innerHTML = `
-  <div style="font-weight:500;margin-bottom:14px;color:#e8e8f0;">Find connection path</div>
+  <div style="font-weight:500;margin-bottom:14px;">Find connection path</div>
   <div style="font-size:11px;color:#555570;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">From</div>
   <select id="path-from" style="width:100%;margin-bottom:12px;background:#1a1a26;color:#e8e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;"></select>
   <div style="font-size:11px;color:#555570;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">To</div>
   <select id="path-to" style="width:100%;margin-bottom:14px;background:#1a1a26;color:#e8e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;"></select>
   <button id="path-go" style="width:100%;background:#7c6af7;color:#fff;border:none;border-radius:7px;padding:9px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Find Path</button>
-  <div id="path-result" style="margin-top:14px;line-height:2;min-height:0;"></div>
+  <div id="path-result" style="margin-top:14px;line-height:2;"></div>
 `;
 document.body.appendChild(pathPanel);
-
-// Show path button only in graph view
-function updatePathBtnVisibility() {
-  pathBtn.style.display = currentView === 'graph' ? 'block' : 'none';
-}
 
 pathBtn.addEventListener('click', () => {
   const isOpen = pathPanel.style.display === 'block';
@@ -454,7 +437,6 @@ function populatePathSelects() {
     from.innerHTML += `<option value="${n.id}">${escHtml(n.title)}</option>`;
     to.innerHTML += `<option value="${n.id}">${escHtml(n.title)}</option>`;
   });
-  // Default: select second note for "to"
   if (to.options.length > 1) to.selectedIndex = 1;
 }
 
@@ -462,12 +444,7 @@ document.getElementById('path-go').addEventListener('click', async () => {
   const from = document.getElementById('path-from').value;
   const to = document.getElementById('path-to').value;
   const result = document.getElementById('path-result');
-
-  if (from === to) {
-    result.innerHTML = '<span style="color:#555570">Pick two different notes.</span>';
-    return;
-  }
-
+  if (from === to) { result.innerHTML = '<span style="color:#555570">Pick two different notes.</span>'; return; }
   result.innerHTML = '<span style="color:#555570">Searching...</span>';
   try {
     const data = await fetch(`${API}/api/path?source=${from}&target=${to}`).then(r => r.json());
@@ -479,12 +456,8 @@ document.getElementById('path-go').addEventListener('click', async () => {
         <div style="font-size:11px;color:#555570;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">${hops}</div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
           ${data.path.map((n, i) => `
-            <span style="
-              background:${n.color}22;color:${n.color};
-              border:1px solid ${n.color}44;
-              border-radius:20px;padding:3px 10px;font-size:12px;
-              cursor:pointer;
-            " onclick="openNote(${n.id});switchView('notes')">${escHtml(n.title)}</span>
+            <span style="background:${n.color}22;color:${n.color};border:1px solid ${n.color}44;border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;"
+              onclick="openNote(${n.id});switchView('notes')">${escHtml(n.title)}</span>
             ${i < data.path.length - 1 ? '<span style="color:#555570">→</span>' : ''}
           `).join('')}
         </div>
@@ -500,25 +473,25 @@ document.getElementById('new-note-btn').addEventListener('click', createNote);
 document.getElementById('delete-note-btn').addEventListener('click', deleteNote);
 noteTitleEl.addEventListener('input', scheduleSave);
 noteContentEl.addEventListener('input', scheduleSave);
+
 noteSearchInput.addEventListener('input', e => {
   noteFilter = e.target.value.trim().toLowerCase();
   renderNoteList();
 });
+
 graphFitBtn.addEventListener('click', () => {
-  if (!graphCanvas.parentElement) return;
-  fitGraphToViewport(graphCanvas.parentElement.clientWidth, graphCanvas.parentElement.clientHeight);
+  const W = graphCanvas.parentElement.clientWidth;
+  const H = graphCanvas.parentElement.clientHeight;
+  fitGraphToViewport(W, H);
 });
 
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    switchView(tab.dataset.view);
-    updatePathBtnVisibility();
-  });
+  tab.addEventListener('click', () => switchView(tab.dataset.view));
 });
 
 fetchNotes();
 
-// Poll for recluster updates every 4s — refreshes UI when background AI finishes
+// Poll for recluster updates every 4s
 let _lastGraphVersion = -1;
 setInterval(async () => {
   try {

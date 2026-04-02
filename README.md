@@ -1,75 +1,133 @@
 # Synapse Notes
 
-AI-powered note-taking app that automatically connects your notes using local Ollama embeddings and a visual knowledge graph.
+AI-powered note-taking app that automatically connects your notes using semantic embeddings and a visual knowledge graph.
 
-## Stack
+![Python](https://img.shields.io/badge/Python-3.9+-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green) ![D3.js](https://img.shields.io/badge/D3.js-v7-orange)
 
-- **Frontend**: Vanilla HTML / CSS / JS + D3.js
-- **Backend**: Python + FastAPI + SQLite
-- **AI**: Ollama (`nomic-embed-text` for embeddings)
-- **Hosting**: Docker on Oracle Cloud VPS
+## Features
 
-## Prerequisites
+- **Smart Linking** - Notes connect automatically based on semantic similarity
+- **Knowledge Graph** - Interactive D3.js visualization of your notes
+- **AI Categorization** - Automatic topic clustering with color coding
+- **Real-time Updates** - Links recalculate on every save
+- **Path Finding** - Discover connections between any two notes
+- **Self-hosted** - Runs entirely on your machine with Ollama
 
-- Docker + Docker Compose
-- Ollama running with `nomic-embed-text` pulled
+## Quick Start
+
+### Prerequisites
+
+- Python 3.9+
+- Ollama installed
+
+### Setup
 
 ```bash
+# 1. Pull the embedding model
 ollama pull nomic-embed-text
-```
 
-## Run locally
+# 2. Install dependencies
+cd backend
+pip install -r requirements.txt
 
-```bash
-git clone https://github.com/sneakyturtle270508/synapse-notes
-cd synapse-notes
-docker compose up --build
+# 3. Start Ollama (if not running)
+ollama serve
+
+# 4. Run the server
+uvicorn main:app --reload
 ```
 
 Open http://localhost:8000
 
-## Run on Oracle Cloud VPS
+## How It Works
 
-1. SSH into your VPS and clone the repo
-2. Make sure Ollama is running on the VPS (or set `OLLAMA_URL` to point to your home server via ngrok)
-3. Run:
-
-```bash
-docker compose up -d --build
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Write Note │ ──► │ AI Embedding│ ──► │   SQLite    │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                              │
+                                              ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  D3.js      │ ◄── │  Similarity │ ◄── │  Cosine Sim │
+│  Graph View │     │  Threshold  │     │  Calculation│
+└─────────────┘     └─────────────┘     └─────────────┘
 ```
 
-4. Set up a reverse proxy (nginx) to expose port 8000
+1. You write a note
+2. Ollama generates semantic embedding
+3. Similarity calculated against all other notes
+4. Notes above threshold get linked
+5. Graph view updates in real-time
 
-## Environment variables
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notes` | List all notes |
+| POST | `/api/notes` | Create note |
+| PUT | `/api/notes/:id` | Update note |
+| DELETE | `/api/notes/:id` | Delete note |
+| GET | `/api/graph` | Get graph nodes + links |
+| GET | `/api/graph/version` | Graph version (for polling) |
+| GET | `/api/notes/:id/connections` | Get related notes |
+| GET | `/api/path?source=X&target=Y` | Find shortest path |
+| POST | `/api/recluster` | Re-run clustering |
+
+## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_URL` | `http://host.docker.internal:11434` | Ollama API base URL |
-| `EMBED_MODEL` | `nomic-embed-text` | Embedding model name |
-| `LINK_THRESHOLD` | `0.78` | Cosine similarity threshold for auto-linking (0–1) |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API URL |
+| `EMBED_MODEL` | `nomic-embed-text` | Embedding model |
+| `CHAT_MODEL` | `qwen2.5:7b` | Chat model for categorization |
+| `LINK_THRESHOLD` | `0.65` | Similarity threshold (0-1) |
 
-## How it works
+## Docker Deployment
 
-1. You write a note and save (auto-saves after 1.2s idle)
-2. FastAPI sends the note text to Ollama `/api/embeddings`
-3. The embedding vector is stored in SQLite
-4. Cosine similarity is computed against all other notes
-5. Notes above the threshold get a link created in the `links` table
-6. The graph view renders all notes as nodes with edges for each link
-7. The editor shows connected notes as chips at the bottom
-
-## API endpoints
-
-```
-GET    /api/notes                   List all notes
-POST   /api/notes                   Create note
-PUT    /api/notes/:id               Update note
-DELETE /api/notes/:id               Delete note
-GET    /api/graph                   Get all nodes + links for graph
-GET    /api/notes/:id/connections   Get connected notes for a note
+```bash
+docker compose up --build
 ```
 
-## Adjust sensitivity
+## Project Structure
 
-If links are too aggressive, raise `LINK_THRESHOLD` (e.g. `0.85`).
-If notes aren't connecting enough, lower it (e.g. `0.72`).
+```
+synapse-notes/
+├── backend/
+│   ├── main.py          # FastAPI application
+│   ├── requirements.txt
+│   └── synapse.db       # SQLite database
+├── frontend/
+│   ├── index.html
+│   └── static/
+│       ├── style.css
+│       └── app.js
+├── docker-compose.yml
+├── Dockerfile
+├── README.md
+└── PROJECT.md            # Presentation outline
+```
+
+## Configuration Tips
+
+- **Too many links?** Raise `LINK_THRESHOLD` to 0.75-0.85
+- **Not enough links?** Lower `LINK_THRESHOLD` to 0.55-0.65
+- **Want faster embeddings?** Use a smaller model like `all-minilm`
+
+## Tech Details
+
+- **Similarity**: Cosine similarity between 768-dim vectors
+- **Clustering**: Greedy algorithm with configurable threshold
+- **Auto-save**: 1.2 second idle debounce
+- **Database**: SQLite with cascading deletes
+
+## Contributing
+
+Pull requests welcome! Please read the code style and ensure tests pass.
+
+## License
+
+MIT
+
+## Author
+
+Made with Python, FastAPI, D3.js, and Ollama
