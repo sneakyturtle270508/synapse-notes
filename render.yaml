@@ -1,0 +1,16 @@
+{
+  "name": "synapse-notes",
+  "runtime": "python",
+  "buildCommand": "pip install -r backend/requirements.txt",
+  "startCommand": "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT",
+  "envVars": [
+    {
+      "key": "OLLAMA_URL",
+      "value": "https://untriumphantly-nonsiliceous-latosha.ngrok-free.dev"
+    },
+    {
+      "key": "LINK_THRESHOLD",
+      "value": "0.65"
+    }
+  ]
+}

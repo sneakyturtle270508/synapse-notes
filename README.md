@@ -838,6 +838,113 @@ For production deployments:
 
 ---
 
+## Render Deployment
+
+Synapse Notes can be deployed to Render as a Web Service. Note that Render doesn't support Ollama directly, so you'll need a separate Ollama server.
+
+### Prerequisites
+
+1. A [Render account](https://render.com)
+2. Ollama installed on a server with GPU access
+3. Your Ollama server accessible via public URL
+
+### Option 1: One-Click Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+### Option 2: Manual Deploy
+
+#### Step 1: Set Up Ollama Server
+
+You'll need Ollama running somewhere accessible. Options:
+
+**Local with tunneling:**
+```bash
+# Install Ollama on your machine
+ollama serve
+
+# Use ngrok to expose Ollama
+ngrok http 11434
+# Your ngrok URL: https://untriumphantly-nonsiliceous-latosha.ngrok-free.dev
+```
+
+**Cloud GPU server:**
+- Deploy Ollama on a GPU-enabled cloud service (AWS, Paperspace, etc.)
+- Use the public IP or domain
+
+#### Step 2: Deploy to Render
+
+1. Fork this repository to GitHub
+2. Log in to [Render](https://render.com)
+3. Click **New → Web Service**
+4. Connect your GitHub repo
+5. Configure the service:
+
+| Setting | Value |
+|---------|-------|
+| Name | `synapse-notes` |
+| Region | Choose closest to you |
+| Branch | `main` |
+| Root Directory | (leave empty) |
+| Runtime | `Python 3` |
+| Build Command | `pip install -r backend/requirements.txt` |
+| Start Command | `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Plan | Free or Starter |
+
+6. Add Environment Variables:
+
+| Key | Value |
+|-----|-------|
+| `OLLAMA_URL` | `https://untriumphantly-nonsiliceous-latosha.ngrok-free.dev` |
+| `LINK_THRESHOLD` | `0.65` |
+
+7. Click **Create Web Service**
+
+#### Step 3: Wait for Deployment
+
+The service will build and deploy. Once complete, you'll get a URL like:
+```
+https://synapse-notes.onrender.com
+```
+
+### Option 3: Background Worker + Web Service
+
+For better performance, deploy as two services:
+
+1. **Background Worker** - Handles embedding and clustering (Private)
+2. **Web Service** - Serves the API and frontend (Public)
+
+This requires splitting the backend code, which is beyond this guide.
+
+### Limitations on Render Free Tier
+
+- Service sleeps after 15 minutes of inactivity
+- First request after sleep causes cold start (~30 seconds)
+- No persistent connections to Ollama
+
+For production use, consider:
+- Render Starter or Pro plan
+- Keep Ollama running 24/7
+- Use a reliable tunneling service or cloud Ollama hosting
+
+### Troubleshooting Render Deployments
+
+**Slow responses:**
+- Ollama server may be sleeping
+- Network latency between Render and Ollama
+
+**Connection errors:**
+- Verify OLLAMA_URL is correct and accessible
+- Check Ollama server is running
+- Ensure CORS is configured on Ollama
+
+**Build failures:**
+- Check Render build logs
+- Verify requirements.txt is correct
+- Ensure all dependencies are listed
+
+---
+
 ## Troubleshooting
 
 This section addresses common issues and their solutions.
