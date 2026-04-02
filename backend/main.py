@@ -19,7 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB = str(BASE_DIR / "synapse.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB = os.getenv("DB_PATH", str(BASE_DIR / "synapse.db"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen2.5:7b")
