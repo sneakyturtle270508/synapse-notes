@@ -1,3 +1,8 @@
+
+<img width="1470" height="464" alt="image" src="https://github.com/user-attachments/assets/7900c63d-7486-4813-a782-5ea7472de79a" />
+
+
+
 # Synapse Notes
 
 ## Table of Contents
