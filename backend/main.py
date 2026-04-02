@@ -409,6 +409,15 @@ def delete_note(note_id: int):
     return {"ok": True}
 
 
+@app.delete("/api/links")
+def clear_links():
+    conn = get_db()
+    conn.execute("DELETE FROM links")
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
 @app.get("/api/graph/version")
 def graph_version():
     return {"version": _graph_version}
