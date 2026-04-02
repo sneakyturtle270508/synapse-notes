@@ -52,8 +52,7 @@ function renderNoteList() {
 
 function matchesNoteFilter(note) {
   if (!noteFilter) return true;
-  const labels = Array.isArray(note.labels) ? note.labels.join(' ') : '';
-  const haystack = `${note.title} ${note.category || ''} ${labels} ${note.content || ''}`.toLowerCase();
+  const haystack = `${note.title} ${note.category || ''} ${note.content || ''}`.toLowerCase();
   return haystack.includes(noteFilter);
 }
 
@@ -106,9 +105,7 @@ async function loadConnections(noteId) {
     conns.forEach(c => {
       const chip = document.createElement('div');
       chip.className = 'conn-chip';
-      const scoreText = c.same_label
-        ? `same label${Array.isArray(c.shared_labels) && c.shared_labels.length ? ` · ${c.shared_labels.join(', ')}` : ''}`
-        : `${Math.round(c.score * 100)}%`;
+      const scoreText = c.same_label ? 'same label' : `${Math.round(c.score * 100)}%`;
       chip.innerHTML = `
         <div class="conn-dot" style="background:${c.color}"></div>
         <span>${escHtml(c.title)}</span>
@@ -234,14 +231,10 @@ function renderGraph() {
     .force('charge', d3.forceManyBody().strength(-350))
     .force('center', d3.forceCenter(W / 2, H / 2))
     .force('collide', d3.forceCollide(55))
-    .alphaDecay(0.03)
-    .on('tick', () => drawGraph(graphNodes, graphLinks, W, H))
-    .on('end', () => {
-      fitGraphToViewport(W, H);
-      sim.alphaTarget(0.015).restart();
-    });
+    .on('tick', () => drawGraph(graphNodes, links, W, H))
+    .on('end', () => fitGraphToViewport(W, H));
 
-  setupGraphInteraction(graphNodes, graphLinks, W, H);
+  setupGraphInteraction(graphNodes, links, W, H);
 }
 
 function drawGraph(nodes, links, W, H) {
@@ -401,7 +394,8 @@ function fitGraphToViewport(W, H) {
   zoom = Math.max(0.35, zoom);
   pan.x = W / 2 - ((minX + maxX) / 2) * zoom;
   pan.y = H / 2 - ((minY + maxY) / 2) * zoom;
-  drawGraph(graphNodes, graphLinks, W, H);
+  const links = graphData.links.map(l => ({ ...l }));
+  drawGraph(graphNodes, links, W, H);
 }
 
 function highlightGraphNode(id) {
