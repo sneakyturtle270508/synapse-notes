@@ -21,6 +21,18 @@ app.add_middleware(
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 DB = os.getenv("DB_PATH", str(BASE_DIR / "synapse.db"))
+USE_PG = bool(DATABASE_URL)
+
+def get_db():
+    if USE_PG:
+        import psycopg2
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.row_factory = lambda c, r: {d[0]: r[i] for i, d in enumerate(c.description)}
+        return conn
+    else:
+        conn = sqlite3.connect(DB)
+        conn.row_factory = sqlite3.Row
+        return conn
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen2.5:7b")
@@ -47,29 +59,54 @@ def get_db():
 
 def init_db():
     conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL DEFAULT '',
-            color TEXT NOT NULL DEFAULT '#888888',
-            category TEXT NOT NULL DEFAULT 'other',
-            embedding TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS links (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_id INTEGER NOT NULL,
-            target_id INTEGER NOT NULL,
-            score REAL NOT NULL,
-            UNIQUE(source_id, target_id),
-            FOREIGN KEY(source_id) REFERENCES notes(id) ON DELETE CASCADE,
-            FOREIGN KEY(target_id) REFERENCES notes(id) ON DELETE CASCADE
-        )
-    """)
+    if USE_PG:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notes (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '#888888',
+                category TEXT NOT NULL DEFAULT 'other',
+                embedding TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS links (
+                id SERIAL PRIMARY KEY,
+                source_id INTEGER NOT NULL,
+                target_id INTEGER NOT NULL,
+                score REAL NOT NULL,
+                UNIQUE(source_id, target_id),
+                FOREIGN KEY(source_id) REFERENCES notes(id) ON DELETE CASCADE,
+                FOREIGN KEY(target_id) REFERENCES notes(id) ON DELETE CASCADE
+            )
+        """)
+    else:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '#888888',
+                category TEXT NOT NULL DEFAULT 'other',
+                embedding TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                target_id INTEGER NOT NULL,
+                score REAL NOT NULL,
+                UNIQUE(source_id, target_id),
+                FOREIGN KEY(source_id) REFERENCES notes(id) ON DELETE CASCADE,
+                FOREIGN KEY(target_id) REFERENCES notes(id) ON DELETE CASCADE
+            )
+        """)
     conn.commit()
     conn.close()
 
