@@ -3,7 +3,7 @@
 
 
 
-# Synapse Notes
+# Synapse
 
 ## Table of Contents
 
@@ -38,17 +38,17 @@
 
 ## Introduction
 
-Synapse Notes represents a paradigm shift in personal knowledge management. Traditional note-taking applications treat each note as an isolated entity, forcing users to manually create links, tags, and folders to establish relationships between their thoughts. This approach fails to capture the inherent interconnected nature of human knowledge and ideas.
+Synapse represents a paradigm shift in personal knowledge management. Traditional note-taking applications treat each note as an isolated entity, forcing users to manually create links, tags, and folders to establish relationships between their thoughts. This approach fails to capture the inherent interconnected nature of human knowledge and ideas.
 
-Synapse Notes solves this fundamental problem by leveraging artificial intelligence to automatically discover and visualize connections between your notes. Every time you write or update a note, the system generates a semantic embedding that captures the meaning of your text, then compares it against all other notes in your collection to find meaningful relationships.
+Synapse solves this fundamental problem by leveraging artificial intelligence to automatically discover and visualize connections between your notes. Every time you write or update a note, the system generates a semantic embedding that captures the meaning of your text, then compares it against all other notes in your collection to find meaningful relationships.
 
 The result is a dynamic knowledge graph that grows and evolves with your thinking. Instead of spending time organizing notes into rigid hierarchies, you can focus on capturing ideas while Synapse handles the relationship mapping automatically.
 
-This comprehensive documentation covers every aspect of Synapse Notes, from initial setup and configuration to advanced customization and deployment. Whether you're a developer looking to extend the application, a researcher exploring knowledge management tools, or a curious user wanting to understand how it all works, this guide provides the information you need.
+This comprehensive documentation covers every aspect of Synapse, from initial setup and configuration to advanced customization and deployment. Whether you're a developer looking to extend the application, a researcher exploring knowledge management tools, or a curious user wanting to understand how it all works, this guide provides the information you need.
 
-### What Makes Synapse Notes Different
+### What Makes Synapse Different
 
-Unlike conventional note-taking apps that rely on manual tagging and linking, Synapse Notes employs sophisticated natural language processing to understand the semantic meaning behind your words. The system recognizes that two notes discussing related concepts should be connected, even if they use different vocabulary or come from different contexts.
+Unlike conventional note-taking apps that rely on manual tagging and linking, Synapse employs sophisticated natural language processing to understand the semantic meaning behind your words. The system recognizes that two notes discussing related concepts should be connected, even if they use different vocabulary or come from different contexts.
 
 For example, a note about "neural networks" and another about "backpropagation" would automatically be linked because they share conceptual territory in the machine learning domain. Similarly, a note about "healthy eating" might connect to one about "weight management" because the underlying topics are related, even if the specific words don't match exactly.
 
@@ -84,13 +84,13 @@ Notes taken in specific contexts—during a meeting, while reading a book, or in
 
 ## Solution Overview
 
-Synapse Notes addresses these challenges through a fundamentally different approach to knowledge management. Instead of requiring users to manually create and maintain connections, the system uses artificial intelligence to automatically discover relationships between notes based on semantic similarity.
+Synapse addresses these challenges through a fundamentally different approach to knowledge management. Instead of requiring users to manually create and maintain connections, the system uses artificial intelligence to automatically discover relationships between notes based on semantic similarity.
 
 The core workflow is simple and intuitive. Users write notes in natural language, and the system handles everything else: generating embeddings, computing similarities, creating connections, and visualizing the resulting knowledge graph.
 
 ### Key Principles
 
-Several guiding principles shape the design and development of Synapse Notes:
+Several guiding principles shape the design and development of Synapse:
 
 **Automatic is Better than Manual.** The system should require as little manual intervention as possible. Users write; the system connects. This philosophy extends to auto-save, auto-categorization, and auto-linking.
 
@@ -98,7 +98,7 @@ Several guiding principles shape the design and development of Synapse Notes:
 
 **Visual over List-based.** The knowledge graph provides a more intuitive view of a note collection than traditional list or folder-based interfaces. Patterns and clusters emerge naturally in visual form.
 
-**Local over Cloud.** Synapse Notes runs entirely on the user's machine, giving them full control over their data. No cloud dependency means no subscription fees, no privacy concerns, and no risk of service discontinuation.
+**Local over Cloud.** Synapse runs entirely on the user's machine, giving them full control over their data. No cloud dependency means no subscription fees, no privacy concerns, and no risk of service discontinuation.
 
 **Simple over Complex.** The interface prioritizes simplicity and usability. Advanced features should be discoverable but not overwhelming. The common case—writing and viewing notes—should require minimal friction.
 
@@ -106,11 +106,11 @@ Several guiding principles shape the design and development of Synapse Notes:
 
 ## Features and Capabilities
 
-Synapse Notes provides a comprehensive set of features designed to enhance personal knowledge management through automated connection discovery.
+Synapse provides a comprehensive set of features designed to enhance personal knowledge management through automated connection discovery.
 
 ### Automatic Note Linking
 
-The core feature of Synapse Notes is automatic link creation. When a note is created or updated, the system generates a semantic embedding and compares it against all existing notes. Notes with similarity scores above the configured threshold are automatically linked together.
+The core feature of Synapse is automatic link creation. When a note is created or updated, the system generates a semantic embedding and compares it against all existing notes. Notes with similarity scores above the configured threshold are automatically linked together.
 
 This process happens in the background, requiring no user action. The more notes you create, the richer the web of connections becomes, revealing unexpected relationships between your ideas.
 
@@ -126,7 +126,7 @@ The graph automatically updates when notes are created, updated, or deleted. Con
 
 ### AI-Powered Categorization
 
-Synapse Notes uses a language model to automatically categorize notes into topic clusters. When notes are created, the system analyzes their content and assigns them to groups based on semantic similarity.
+Synapse uses a language model to automatically categorize notes into topic clusters. When notes are created, the system analyzes their content and assigns them to groups based on semantic similarity.
 
 Each category receives a unique color, visible both in the graph visualization and in the note list. This color coding makes it easy to identify topic areas at a glance and to understand how different domains connect.
 
@@ -140,7 +140,7 @@ This capability reveals hidden connections and demonstrates the surprising ways 
 
 ### Real-time Updates
 
-Synapse Notes provides immediate feedback as you write. Notes auto-save after a brief idle period, triggering the embedding and linking process in the background. The graph view updates to reflect new connections, often within seconds of saving.
+Synapse provides immediate feedback as you write. Notes auto-save after a brief idle period, triggering the embedding and linking process in the background. The graph view updates to reflect new connections, often within seconds of saving.
 
 This real-time behavior creates a responsive, alive feeling to the application. As you write, you can see your knowledge graph growing and connecting in real-time.
 
@@ -156,11 +156,11 @@ Notes can be exported in JSON format for backup or migration purposes. The expor
 
 ## Technical Architecture
 
-Understanding the technical architecture of Synapse Notes helps explain how the various components work together to deliver the system's capabilities.
+Understanding the technical architecture of Synapse helps explain how the various components work together to deliver the system's capabilities.
 
 ### System Overview
 
-Synapse Notes follows a client-server architecture with a clean separation of concerns. The backend, built with FastAPI, handles data persistence, AI processing, and API endpoints. The frontend, built with vanilla JavaScript and D3.js, provides the user interface and graph visualization.
+Synapse follows a client-server architecture with a clean separation of concerns. The backend, built with FastAPI, handles data persistence, AI processing, and API endpoints. The frontend, built with vanilla JavaScript and D3.js, provides the user interface and graph visualization.
 
 Communication between client and server occurs over HTTP REST APIs. The frontend makes requests to create, read, update, and delete notes, and to fetch graph data for visualization. All business logic resides in the backend.
 
@@ -194,7 +194,7 @@ The frontend is a single-page application that communicates with the backend via
 
 ## System Requirements
 
-Synapse Notes runs on any system that supports Python and Ollama. The following requirements ensure optimal performance.
+Synapse runs on any system that supports Python and Ollama. The following requirements ensure optimal performance.
 
 ### Hardware Requirements
 
@@ -226,11 +226,11 @@ Synapse Notes runs on any system that supports Python and Ollama. The following 
 
 ## Installation Guide
 
-This section provides detailed instructions for installing and running Synapse Notes.
+This section provides detailed instructions for installing and running Synapse.
 
 ### Step 1: Install Ollama
 
-Ollama provides the AI models that power Synapse Notes. Download and install Ollama from the official website (https://ollama.ai) or use your system's package manager.
+Ollama provides the AI models that power Synapse. Download and install Ollama from the official website (https://ollama.ai) or use your system's package manager.
 
 After installation, verify that Ollama is running:
 
@@ -240,7 +240,7 @@ ollama --version
 
 ### Step 2: Pull Required Models
 
-Synapse Notes uses two Ollama models: an embedding model and a chat model.
+Synapse uses two Ollama models: an embedding model and a chat model.
 
 Pull the embedding model:
 
@@ -268,7 +268,7 @@ You should see both models listed.
 
 ### Step 3: Install Python Dependencies
 
-Clone or download the Synapse Notes repository, then navigate to the backend directory:
+Clone or download the Synapse repository, then navigate to the backend directory:
 
 ```bash
 cd synapse-notes/backend
@@ -301,7 +301,7 @@ This starts the Ollama server on port 11434 by default. Keep this terminal open 
 
 ### Step 5: Run the Backend Server
 
-With Ollama running, start the Synapse Notes backend:
+With Ollama running, start the Synapse backend:
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -317,13 +317,13 @@ Open your web browser and navigate to:
 http://localhost:8000
 ```
 
-You should see the Synapse Notes interface. Create your first note by clicking the "+" button in the sidebar.
+You should see the Synapse interface. Create your first note by clicking the "+" button in the sidebar.
 
 ---
 
 ## Configuration
 
-Synapse Notes behavior can be customized through environment variables and configuration files.
+Synapse behavior can be customized through environment variables and configuration files.
 
 ### Environment Variables
 
@@ -366,7 +366,7 @@ The LINK_THRESHOLD variable controls how aggressively notes are connected. Findi
 
 ### Using Different Models
 
-Synapse Notes supports any Ollama embedding model. To use a different model:
+Synapse supports any Ollama embedding model. To use a different model:
 
 1. Pull the model: `ollama pull <model-name>`
 2. Update the EMBED_MODEL environment variable
@@ -383,7 +383,7 @@ For categorization, any Ollama chat model works. Smaller models (2-7B parameters
 
 ## API Documentation
 
-Synapse Notes provides a comprehensive REST API for all operations.
+Synapse provides a comprehensive REST API for all operations.
 
 ### Base URL
 
@@ -580,7 +580,7 @@ Common status codes:
 
 ## Frontend Guide
 
-This section describes how to use the Synapse Notes interface.
+This section describes how to use the Synapse interface.
 
 ### The Sidebar
 
@@ -639,7 +639,7 @@ Type in the search bar to filter notes by title or content. The list updates in 
 
 ## Database Schema
 
-Synapse Notes uses SQLite for data persistence. Understanding the schema helps with debugging and custom extensions.
+Synapse uses SQLite for data persistence. Understanding the schema helps with debugging and custom extensions.
 
 ### Tables
 
@@ -683,7 +683,7 @@ Indexes on frequently queried columns improve performance:
 
 ## AI and Machine Learning
 
-The AI capabilities of Synapse Notes rely on two Ollama models working together.
+The AI capabilities of Synapse rely on two Ollama models working together.
 
 ### Embedding Generation
 
@@ -786,7 +786,7 @@ The visualization supports mouse and touch interactions:
 
 ## Docker Deployment
 
-For containerized deployment, Synapse Notes includes Docker configuration.
+For containerized deployment, Synapse includes Docker configuration.
 
 ### Docker Compose
 
@@ -840,7 +840,7 @@ For production deployments:
 
 ## Render Deployment
 
-Synapse Notes can be deployed to Render as a Web Service. Note that Render doesn't support Ollama directly, so you'll need a separate Ollama server.
+Synapse can be deployed to Render as a Web Service. Note that Render doesn't support Ollama directly, so you'll need a separate Ollama server.
 
 ### Prerequisites
 
@@ -1025,7 +1025,7 @@ This section addresses common issues and their solutions.
 
 ## Development Guide
 
-This section is for developers who want to extend or modify Synapse Notes.
+This section is for developers who want to extend or modify Synapse.
 
 ### Project Structure
 
@@ -1095,7 +1095,7 @@ Follow these conventions:
 
 ## Performance Optimization
 
-Optimize Synapse Notes for your hardware and use case.
+Optimize Synapse for your hardware and use case.
 
 ### Embedding Speed
 
@@ -1134,7 +1134,7 @@ For local-only use, no additional security is needed. Your notes stay on your ma
 
 ### Network Deployment
 
-If exposing Synapse Notes on a network:
+If exposing Synapse on a network:
 
 1. Add authentication middleware
 2. Use HTTPS with a valid certificate
@@ -1154,11 +1154,11 @@ Ollama runs locally and doesn't require authentication by default. For networked
 
 ## Use Cases
 
-Synapse Notes adapts to various workflows and use cases.
+Synapse adapts to various workflows and use cases.
 
 ### Personal Knowledge Management
 
-Capture and connect ideas from books, articles, and research. Synapse Notes helps you build a personal knowledge base that reveals connections between sources and topics.
+Capture and connect ideas from books, articles, and research. Synapse helps you build a personal knowledge base that reveals connections between sources and topics.
 
 ### Project Documentation
 
@@ -1166,7 +1166,7 @@ Document project decisions, technical choices, and lessons learned. The knowledg
 
 ### Learning Tool
 
-Study a new subject by creating notes on key concepts. Synapse Notes automatically identifies relationships, helping you understand how topics connect.
+Study a new subject by creating notes on key concepts. Synapse automatically identifies relationships, helping you understand how topics connect.
 
 ### Brainstorming
 
@@ -1180,13 +1180,13 @@ Record meeting notes and see how topics connect across meetings. Discover recurr
 
 ## FAQ
 
-### How does Synapse Notes compare to Obsidian/Roam Research?
+### How does Synapse compare to Obsidian/Roam Research?
 
-Synapse Notes focuses on automatic connection discovery, while Obsidian and Roam require manual linking with wikilinks. Synapse Notes uses AI to understand meaning rather than relying on explicit connections.
+Synapse focuses on automatic connection discovery, while Obsidian and Roam require manual linking with wikilinks. Synapse uses AI to understand meaning rather than relying on explicit connections.
 
 ### Can I use my own AI models?
 
-Yes. Synapse Notes uses Ollama, which supports many models. Configure EMBED_MODEL and CHAT_MODEL to use different models.
+Yes. Synapse uses Ollama, which supports many models. Configure EMBED_MODEL and CHAT_MODEL to use different models.
 
 ### Where is my data stored?
 
@@ -1200,11 +1200,11 @@ Copy the `synapse.db` file to a backup location. You can also export notes as JS
 
 Not directly, but you can write a script to import from JSON or other formats using the API.
 
-### How many notes can Synapse Notes handle?
+### How many notes can Synapse handle?
 
-Performance varies by hardware, but Synapse Notes has been tested with thousands of notes. For very large collections, consider optimizing the graph rendering.
+Performance varies by hardware, but Synapse has been tested with thousands of notes. For very large collections, consider optimizing the graph rendering.
 
-### Does Synapse Notes work offline?
+### Does Synapse work offline?
 
 Yes. Once Ollama models are downloaded, everything runs locally without internet.
 
@@ -1279,7 +1279,7 @@ Planned features and improvements:
 
 MIT License
 
-Copyright (c) 2024 Synapse Notes
+Copyright (c) 2024 Synapse
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -1291,7 +1291,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Acknowledgments
 
-Synapse Notes builds on many excellent open-source projects:
+Synapse builds on many excellent open-source projects:
 
 - **FastAPI** - Modern Python web framework
 - **D3.js** - Data visualization library
@@ -1313,4 +1313,4 @@ For general questions and discussions, open a GitHub Discussion. For bugs, open 
 
 ---
 
-*This documentation was last updated for Synapse Notes v1.1.0*
+*This documentation was last updated for Synapse v1.1.0*

@@ -1,4 +1,4 @@
-# Synapse Notes
+# Synapse
 
 ## AI-Powered Knowledge Graph for Note-Taking
 
@@ -15,7 +15,7 @@
 
 ## Our Solution
 
-**Synapse Notes** automatically maps your knowledge
+**Synapse** automatically maps your knowledge
 
 1. Write naturally
 2. AI understands meaning
